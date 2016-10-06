@@ -1,4 +1,4 @@
-##This repository contains my work for Udacity's Data Analyst Nanodegree program, 2015-2016.
+####This repository contains my work for Udacity's Data Analyst Nanodegree program, 2015-2016.
 
 ##Data Projects:
 
@@ -25,20 +25,20 @@ I designed an A/B test for Udacity Free Trial’s Screener, including which inva
                                                                                                                      
 ##Courses taken:
 
-Descriptive Statistics
-Inferential Statistics
-Introduction to Data Science
-Data Wrangling with MongoDB
-Data Analysis with R
-Introduction to Machine Learning
-Data Visualization and D3.js
-A/B Testing
+* Descriptive Statistics
+* Inferential Statistics
+* Introduction to Data Science
+* Data Wrangling with MongoDB
+* Data Analysis with R
+* Introduction to Machine Learning
+* Data Visualization and D3.js
+* A/B Testing
 
 ##Skills acquired:
 
-Python (Numpy, SciPy, Pandas, Scikit-learn)
-MongoDB
-SQL
-R (dplyr, ggplot2)
-D3.js & dimple.js
-Javascript
+* Python (Numpy, SciPy, Pandas, Scikit-learn)
+* MongoDB
+* SQL
+* R (dplyr, ggplot2)
+* D3.js & dimple.js
+* Javascript
