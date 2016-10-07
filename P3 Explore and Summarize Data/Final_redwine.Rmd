@@ -1,0 +1,931 @@
+Red wine exploration by Thuy Quach
+========================================================
+
+
+## Abstract
+
+Why some red wines taste better than others? Just because the wine tasters say so or there is another way to tell. Can we tell what make great wine or bad wine from their chemical properties? And if yes, under what conditions the quality of red wines is the best. 
+
+This is what we are going to explore: relationship of chemical properties with wine quality. 
+
+The analysis included: data structure, statistical summary, distribution plots, box plots of each variables vs. quality, correlation matrix and scatter plots, final plots and data exploring the strong correlated variables, and reflections.
+
+## Dataset
+
+The data set using in this analysis can be found here https://s3.amazonaws.com/udacity-hosted-downloads/ud651/wineQualityInfo.txt.
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width=12, fig.height=8, fig.path='Figs/',
+echo=FALSE, warning=FALSE, message=FALSE)      
+```
+
+```{r load package, echo=FALSE, message=FALSE, warning=FALSE, packages=FALSE}
+# Load all of the packages for ploting and statistical analysis-------------
+library(ggplot2) 
+install.packages(c("psych","GPArotation","MASS"), 
+                 repos = 'http://cran.us.r-project.org')
+install.packages("dplyr", dependencies = T, 
+                 repos = 'http://cran.us.r-project.org')
+library(dplyr)
+library(data.table)
+library(reshape2)
+install.packages("gridExtra", repos = 'http://cran.us.r-project.org')
+library(gridExtra)
+install.packages("GGally", repos = 'http://cran.us.r-project.org')
+library(GGally)
+```
+
+```{r Load_the_Data, echo=FALSE, message=FALSE, warning=FALSE, packages=FALSE}
+# Load the Data
+getwd()
+setwd('~/Google Drive/Data-analysis-with-R/')
+redwine <- read.csv(file = 'wineQualityReds.csv', sep = ",", header = TRUE) 
+```
+
+## Summary of the data
+
+First, let's see the total of the wine data is: 
+```{r summary, echo=FALSE}
+length(redwine$quality)
+```
+samples. 
+
+Then, let's explore the all variables.
+```{r variables, echo=FALSE}
+names(redwine)
+```
+
+X is data entry number and quality is the output of the analysis. So, there were 11 total variables. The data is in wide format.
+
+How is about the structure of the data?
+
+```{r data_structure, echo=FALSE}
+str(redwine)
+```
+
+Quality was measured as factor integer. All other variables were numerical data. 
+
+Statistical summary of the data was shown below.
+
+```{r summary data, echo=FALSE}
+summary(redwine)
+```
+
+Quality was range from 3 to 8. Residual.sugar, chlorides, free.sulfur.dioxide and total.sulfur.dioxide had very large range of data. Do these variables influence wine quality?
+
+## Mean of all variables grouped by quality
+
+Mean is important value to investigate data. Let's write a function to calculate the mean of all variables grouped by a variable of interest.
+
+```{r}
+GroupAndMean <- function(data, variable){
+  # Compute the mean of all variables grouped by a variable of interest.
+  #
+  # Args:
+  #    data    : Input data which group_by and mean are to be calculated.
+  #    variable: The variable of interest which data is grouped by.
+  # Returns:
+  #    The mean of all other variables in the data grouped by the variable.
+  data %>%
+    group_by_(.dots = variable) %>%
+    summarise_each(funs(mean))
+}
+
+```
+
+Here was the mean values of all variables grouped by quality.
+
+```{r}
+mean.variable.by.quality <- GroupAndMean(redwine, 'quality')
+
+# drop the column X
+mean.variable.by.quality <- 
+  mean.variable.by.quality[, !names(mean.variable.by.quality) %in% 'X']
+mean.variable.by.quality
+```
+
+# Univariate Analysis
+
+### Distribution of individual variables by histogram and density:
+
+First, let us explore the distributions of each variables using ggplot. 
+
+The data is in the format of wide data which make difficult for R to draw multiple variable plots. Therefore, I reshaped the data into long format.
+
+```{r long format}
+# reshape data into long format
+long.data <- melt(redwine, id.vars=c("X", "quality")) 
+```
+
+#### All variables
+```{r distribution plot, echo=FALSE, message=FALSE, warning=FALSE, packages=FALSE}
+# plot the distribution and density
+dist.plot <- ggplot(long.data, aes(x=value)) +  
+  geom_histogram(aes(y= ..density..), 
+                 binwidth=0.05, colour="green", fill="white") + 
+  geom_density(color = "red", alpha = 0.5)
+
+# iterate plot 
+dist.plot + facet_wrap(~ variable, scales = "free") 
+  
+```
+
+Some of the variables seem to follow normal distribution such as density, pH, alcohol, volatile.acidity, sulphates and fix.acidity. Few others were right skewed distribution such as residual.sugar, free.sulfur.dioxide, total.sulfur.dioxide, sulphate, chloride.  
+
+#### Quality
+
+```{r quality distribution, echo=FALSE}
+ggplot(data = redwine, aes(x = quality)) + 
+  geom_histogram(color = 'green', fill = 'green', bins = 10) +
+  # add text to data
+  stat_bin(binwidth=1, geom="text", 
+           aes(label=..count..), vjust=-1, size = 5) +
+  ylim(c(0, 800)) +
+  scale_x_continuous(breaks =1:10)
+
+
+```
+
+
+The histogram showed wine quality is in range of 3 to 8. There was no wine with quality 1, 2, 9 and 10. Most of the wine samples had wine quality of 5 (681 samples) and 6 (638 samples).
+
+```{r quality statistic}
+# calculate the % of wine with quality 5 and 6
+100*count(subset(redwine, quality == 5 | quality == 6))/length(redwine$quality)
+```
+There was 82.49 % of wines had quality of 5 or 6.
+
+
+## Data correlations
+
+Let us run the correlation matrix to see what chemical properties have strong relationships with wine quality and also with each others using ggpairs. It was difficult to plot ggpairs on all variables because the space allotted to the plot couldn't hold 12^2 variables, so I created three groups and made sure that the variable "quality" (col 13) was presented in all.
+
+We learned that any correlations above 0.3 is meaningful and 0.7 is pretty strong. Let us see if we could find any in the below results.
+
+```{r correlation graphs 1, echo=FALSE}
+group1 <- ggpairs(redwine[c(13, 2:5)])
+group1
+```
+
+Correlation efficients between quality with volatile.acidity was -0.391, citric.acid with fixed.acidity was 0.672, citric.acid with volatile.acidity was -0.552.
+
+```{r correlation graphs 2, echo=FALSE}
+group2 <- ggpairs(redwine[c(13, 6:8)])
+group2
+```
+
+Correlation efficient between total.sulfur.dioxide and free.sulfur.dioxide was 0.668.
+
+```{r correlation graphs 3, echo=FALSE}
+group3 <- ggpairs(redwine[c(13, 9:12)])
+group3
+```
+
+Correlation efficient between quality and alcohol was 0.476, pH and density was -0.342.
+
+# Bivariate analysis plots
+
+### What chemical properties correlated with each others?
+
+From previous data correlations analysis, we found that there were some chemical properties strongly correlated with each others. Let explore them by scatter plots with linear regression line (blue line).
+
+Since we will apply the same kind of visualization for all the chemical properties, let's write a function to plot it.
+
+#### Bivariate plot function:
+
+```{r Bivariate plot}
+BivariatePlot<- function(data, x, y) {
+  # Plot a scatter plot with linear regression line of two vectors
+  # Args:
+  #  data: The input data
+  #     x: One of two vectors whose scatter plot and linear regression are 
+  #        plotted from.
+  #     y: The other vector. x and y must have the same length.
+  # Returns:
+  #  The scatter plot with linear regression line of x and y
+  ggplot(data, aes_q(x = substitute(x), y = substitute(y))) + 
+  geom_point(alpha = 0.3)+
+  geom_smooth(method=lm,formula=y~x)
+}
+
+```
+
+#### Citric.acid and fixed.acidity
+
+Here was the relationship of citric.acid and fixed.acidity investigated by the scatter plot with linear regression.
+
+```{r}
+BivariatePlot(redwine, citric.acid, fixed.acidity)
+```
+
+Statistic summary of citric.acid
+```{r summary of citric.acid, echo=FALSE}
+summary(redwine$citric.acid)
+```
+
+Statistic summary of fixed.acidity
+```{r summary of fixed.acidity, echo=FALSE}
+summary(redwine$fixed.acidity)
+```
+
+As showed in the plot, citric.acid increased and the fixed.acidity were proportionally increased together (see the blue linear regression line). Citric.acid ranged from 0 to 1 g/dm^3 while fixed.acidity ranged from 4.5 to 15.9 g/dm^3. It also could be explainable since citric.acid is an acid that leads to increased the fixed.acidity of the wine. Previous correlation analysis supported the results as correlation coefficient of the two chemical properties was 0.672. 
+
+#### Total.sulfur.dioxide and free.sulfur.dioxide
+
+Here was the relationship of total.sulfur.dioxide and free.sulfur.dioxide investigated by the scatter plot with linear regression.
+
+```{r sulfur.dioxide and free.sulfur.dioxide, echo=FALSE}
+BivariatePlot(redwine, total.sulfur.dioxide, free.sulfur.dioxide)
+
+```
+
+Statistic summary total.sulfur.dioxide
+
+```{r summary of total.sulfur.dioxide, echo=FALSE}
+summary(redwine$total.sulfur.dioxide)
+```
+
+Statistic summary of  free.sulfur.dioxide
+```{r summary of free.sulfur.dioxide, echo=FALSE}
+summary(redwine$free.sulfur.dioxide)
+```
+
+We could see from the plot that as total.sulfur.dioxide increased, the free.sulfur.dioxide increased. Total.sulfur.dioxide ranged from 6 to 289 g/dm^3 while free.sulfur.dioxide ranged from 1 to 72 g/dm^3. It also could be explainable since free.sulfur.dioxide is a part of the total.sulfur.dioxide. Previous correlation analysis supported the results as correlation coefficient the two chemicals was 0.668.  
+
+#### pH and density:
+
+Here was the relationship of pH and density investigated by the scatter plot with linear regression.
+
+```{r pH and density, echo=FALSE}
+BivariatePlot(redwine, pH, density)
+```
+
+Statistical summary of pH
+```{r pH summary, echo=FALSE}
+summary(redwine$pH)
+```
+
+Statistical summary of density
+```{r density summary, echo=FALSE}
+summary(redwine$density)
+```
+
+Though the correlation was not strong, we could notice that as pH increased, the density increased. pH ranged from 2.74 to 4.01 while density ranged from 1.004 to 0.990. The range of density was very small (around 0.014). Previous correlation analysis supported the results as correlation coefficient the two chemical properties was -0.342.  
+
+### What chemical properties influence wine quality?
+
+From the above correlation analysis, I found only alcohol and volatile.acidity had correlation coefficient bigger than 0.3 with quality. Since we are interested in what make best wine, it is important to consider some other chemical properties which may have some impacts.
+
+Let's see the below results.
+
+```{r correlation with quality, echo=FALSE, warning=FALSE}
+# correlation coefficients with quality
+var.redwine.quality <- cor(x=redwine[,2:12], y=redwine$quality)
+var.redwine.quality
+
+# create a dataframe with correlation coefficients results--------
+var <- c(names(redwine)[2:12])
+cor.coef <- c(var.redwine.quality[1:11])
+df <- data.frame(var,cor.coef)
+
+# correlation graph------------
+cor.plot <- ggplot(df, aes(x = var, y = cor.coef))
+cor.plot + 
+  geom_bar(stat = "identity", color = "blue", fill = "blue") + 
+  ylim(-0.5, 0.5) +    
+  coord_flip() # flip the axis for easier comparation
+```
+
+
+We could see that there were 6 chemical properties (volatile.acidity, total.sulfur.dioxide, pH, free.sulfur.dioxide, density, chlorides) have negative correlation with quality. It suggested that those chemical properties make wine taste worse. Among those properties, volatile.acidity had the most impact with correlation of -0.391. While sulphates, residual.sugar, fixed.acidity citric.acid, alcohol make wine taste better. Among those properties, sulphates, citric.acid, alcohol had the strongest impact with correlations of 0.251, 0.226 and 0.476 respectively. 
+
+### Correlation of chemical properties vs. wine quality by boxplots:
+
+```{r boxplot, echo=FALSE, message=FALSE, warning=FALSE, packages=FALSE}
+# correlation boxplot and iterate by variables
+box.plot.all <- ggplot(long.data, aes(x = quality, y = value)) +
+  facet_wrap(~ variable, scales="free_y")
+
+ # groupby quality
+box.plot.all + geom_boxplot(aes_string(group = 'quality'))
+
+```
+
+From the box plots, it looked like  alcohol, sulphates, volatile.acidity and citric.acid might have impacts on the quality of wines. The results were consistent with previous correlation analysis.
+
+Let's first compare the distributions of the chemical properties code. Here is the function to make a density plot.
+
+#### Bivariate plot function
+
+```{r density plot function, echo=FALSE}
+DensityPlot <- function(data, x) {
+  # Plot a density plot of a data code by a variable of interest
+  # Args:
+  #  data: The input data
+  #     x: The variable of interest.
+  # Returns:
+  #  Density plot of all variables in data code by x.
+  ggplot(data, aes_q(x= substitute(x), fill= substitute(as.factor(quality)))) + 
+  geom_density(size = 1, alpha=.3)
+}
+
+```
+
+#### Alcohol and quality
+
+Let's compare the distributions of alcohol for different wine qualities
+
+
+```{r alcohol distribution, echo=FALSE }
+DensityPlot(redwine, alcohol)
+```
+
+The distributions of alcohol were similar and almost normal for all wine qualities except 5 where the distribution was much narrower. 
+
+Let's compute mean of alcohol with other qualities and compare overall on a boxplot. First write a function to plot a boxplot with mean line.
+
+#### Boxplot with mean line data
+
+```{r boxplot function}
+BoxplotWithMean <- function(data, x, y){
+  # Plot a boxplot of two variables with a mean line of a variable of interest
+  # Args:
+  #  data: The input data
+  #     x: One of two variables
+  #     y: Variable of interest. x and y must have the same length.
+  # Returns:
+  #  The boxplot x and y and mean line of y.
+  ggplot(data, aes_q(x = substitute(x), y = substitute(y))) + 
+  geom_boxplot(aes_q(group = substitute(x))) + 
+  scale_x_continuous(breaks=1:9) +
+  stat_summary(fun.y = mean, geom="line", size = 3, color = 'green')
+}
+
+
+```
+
+Boxplot of alcohol vs. quality with green mean line was showed below. The text was mean value of alcohol for each quality.
+
+```{r boxplot alcohol, echo=FALSE, warning=FALSE}
+# correlation boxplot and iterate by variables
+boxplot.alcohol <- BoxplotWithMean(redwine, quality, alcohol) +
+  geom_text(data = mean.variable.by.quality, 
+            aes(label = round(alcohol,3), y = alcohol), 
+            color = 'blue', size = 5, vjust = 2.8) 
+
+boxplot.alcohol
+```
+
+As alcohol increased, the wine quality increase from 3 to 8 except for quality of 5. Particularly, average alcohol was increased from 9.955 to 12.094 (1.2 times) when wine quality increased from 3 to 8, except for quality of 5 where the average alcohol was 9.9. 
+
+#### Citric.acid and quality
+
+Let's compare the distributions of citric.acid for different wine qualities.
+
+```{r citric.acid distribution, echo=FALSE }
+DensityPlot(redwine, citric.acid)
+```
+
+We could see the mean of citric.acid shifted to the right with wine quality increased. 
+
+Let's compute the mean of citric.acid for all wine quality and compare overall of the data using BoxplotWithMean function.
+
+
+```{r boxplot citric.acid, echo=FALSE}
+# correlation boxplot and iterate by variables
+boxplot.citric.acid <- BoxplotWithMean(redwine, quality, citric.acid) +
+  geom_text(data = mean.variable.by.quality, 
+            aes(label = round(citric.acid,3), y = citric.acid), 
+            color = 'blue', size = 5, vjust = 2.3)
+
+boxplot.citric.acid
+```
+
+The plot showed the relationship citric.acid vs. quality with green mean line of citric.acid. The text was mean value of citric.acid for each quality. We could see that as the wine quality increased from 3 to 8, there was an increase in average of citric.acid. It was clearly to see the average value of citric.acid increased from 0.171 to 0.391 (2.3 times) when quality increased from 3 to 8. 
+
+#### Sulphates and quality
+Let's compare the distributions of citric.acid for different wine qualities
+
+```{r sulphates distribution, echo=FALSE }
+DensityPlot(redwine, sulphates)
+```
+
+We could see the distributions of sulphates were similar and the mean of sulphates shifted to the right with wine quality increased. 
+
+Let's summary the mean of sulphates and combine the data on a boxplot.
+
+
+```{r boxplot sulphates, echo=FALSE}
+# correlation boxplot and iterate by variables
+boxplot.sulphates <- BoxplotWithMean(redwine, quality, sulphates) +
+  geom_text(data = mean.variable.by.quality, 
+            aes(label = round(sulphates,3), y = sulphates), 
+            color = 'blue', size = 5, vjust = 3.3) +
+  coord_cartesian(ylim = c(0.3, 1.0)) # zoom the boxplot
+
+boxplot.sulphates
+
+```
+
+The plot showed the relationship sulphates vs. quality with green mean line of sulphates. The text was mean value of sulphates for each quality. We could see that as the sulphates increased from 3 to 8, there was an increase quality. It was clearly to see the average value of sulphates increased from 0.570 to 0.768 (1.3 times) when quality increased from 3 to 8. 
+
+#### Volatile.acidity and quality
+
+Let's compare the distributions of volatile.acidity for different wine qualities
+
+```{r volatile.acidity distribution, echo=FALSE }
+DensityPlot(redwine, volatile.acidity)
+```
+
+We could see the distributions of volatile.acidity were similar and the mean of volatile.acidity shifted to the right with wine quality increased. 
+
+Let's summary and arrange the mean of volatile.acidity, and combine the data on a boxplot.
+
+
+```{r boxplot volatile.acidity, echo=FALSE}
+# correlation boxplot and iterate by variables
+boxplot.volatile.acidity <- ggplot(redwine, 
+                                   aes(x = quality, y = volatile.acidity)) +
+  geom_boxplot(aes_string(group = 'quality')) + 
+  scale_x_continuous(breaks=1:9) +
+  # use custom color for mean line: red indicates negative correlation
+  stat_summary(fun.y = mean, geom="line", color = "red", size = 3) +
+  geom_text(data = mean.variable.by.quality,
+            aes(label = round(volatile.acidity,3), 
+                y = volatile.acidity),
+            color = "blue", size = 5, vjust = 2.5)
+
+boxplot.volatile.acidity
+
+```
+
+The plot showed the relationship volatile.acidity vs. quality with red mean line of volatile.acidity. The text was mean value of volatile acidity for each quality.As volatile.acidity decreased, there was an increase in wine quality. It was clearly to see the average value of volatile.acidity decreased from 0.884 to 0.404 (2.2 times) when quality increased from 3 to 8. 
+
+
+### Summary of bivariate analysis:
+
+There were strong correlations among the chemical properties such as citric.acid with fixed.acidity (0.672), citric.acid with volatile.acidity (-0.552), total.sulfur.dioxide and free.sulfur.dioxide (0.668), and pH and density (-0.342).
+
+There were also strong correlations of some chemicals with quality such as  quality with volatile.acidity (-0.391), quality and alcohol (0.476), quality and sulphates (0.251), quality and citric.acid (0.226). 
+
+
+# Multivariate Plots Section
+
+It is important to investigate multivariate analysis. As previous bivariate analysis, we found that some chemical correlated well with each others or with quality. In this section, we analyzed how our feature of interest - quality varies with other chemical properties.
+
+In order to see simplify and see clearer relationships, I grouped the quality by their average chemical properties and add a new rating variable which groups the quality into three groups. 
+
+
+The above table showed the average value for each chemical properties for every wine quality.
+
+Let's see how the variables vary with quality and each others.
+
+
+```{r reshape mean.variable.by.quality}
+# reshape data into long format
+long.avg.data <- melt(mean.variable.by.quality, id.vars=c("quality")) 
+```
+
+```{r variables vs quality, echo=FALSE}
+ggplot(long.avg.data, aes(x = quality, y= value, 
+                          color = as.factor(variable))) +
+  geom_point() +
+  geom_line() +
+  scale_y_log10() + 
+  theme(legend.position = "top") + 
+  labs(y = "log10(mean)")+ 
+  ggtitle("chemical properties and quality")
+```
+
+It was not so clear to see what chemical properties varied with each others and with quality. It could be due to the huge difference in value of each variables. It is better to investigate two of them in a plot. Also, it could be useful to group quality into smaller range of order. 
+
+### Group the quality in three groups using new variable rating
+
+First, let's add a new variable 'rating' which group wine quality into 3 categories: 'bad' for quality <= 4, 'good' for quality >= 5, 'very good' for quality >=7.
+
+```{r new rating variable}
+# turn data in to data.table
+wine.table <- data.table(redwine)
+
+# add new rating variable
+wine.table[, rating := ifelse(quality <=4, "bad",
+                       ifelse(quality >=5 & quality <=6, "good",
+                       ifelse(quality >=7, "very good", NA)))]
+```
+
+Let's summarize the wine by rating.
+```{r}
+wine.table %>%
+  group_by(rating) %>%
+  summarize(n_obs = n())
+```
+
+So, there was 217 very good wines, 1319 good wines and 63 bad wines. 
+
+### Average of all variables grouped by rating
+
+```{r}
+# put a name for new data
+mean.variable.by.rating <- GroupAndMean(as.data.frame(wine.table), 'rating')
+
+# drop the column X since I do not need it
+mean.variable.by.rating <-
+  mean.variable.by.rating[,!(names(mean.variable.by.rating) %in% 'X')]
+
+mean.variable.by.rating
+```
+
+
+The table show the average value of each chemical properties for each wine rating. 
+```{r reshape mean.variable.by.rating}
+# reshape data into long format
+long.data.avg.rating <- melt(mean.variable.by.rating, id.vars=c("rating")) 
+```
+
+We could use the data for plotting relationship of chemical properties vs. rating later.
+
+### Citric.acid and fixed.acidity correlation code by quality
+
+Now, let's see how citric.acid and fixed.acidity vary with each other and with wine quality.
+
+
+```{r}
+# scatter plot for variables
+ggplot(redwine, aes(x = citric.acid, y = fixed.acidity,
+                    color = as.factor(quality))) + 
+  geom_point(alpha = 0.2) + theme(legend.position = "top") +
+  geom_point(data = mean.variable.by.quality, 
+           aes(x = citric.acid, y = fixed.acidity, 
+               shape = as.factor(quality)),
+           color = 'red', size = 3) +
+  geom_smooth(data = mean.variable.by.quality, 
+           aes(x = citric.acid, y = fixed.acidity), method=lm, 
+           color = 'blue')
+```
+
+The scatter plot was showed how fixed.acidity and citric.acid varied with wine quality. I added the mean values of fixed.acidity and citric.acid for all qualities as red shapes. The blue line was regression line. We could see that the trend of proportional increase between fixed.acidity and citric.acid. Let's see if it is also true for wine quality by zooming up regression line of mean data.
+
+
+Regression line of mean data.
+
+```{r}
+ggplot(mean.variable.by.quality, 
+           aes(x = citric.acid, y = fixed.acidity)) +
+  geom_point(aes(shape = as.factor(quality)), size = 3, color = 'red') +
+  geom_smooth(method=lm, color = 'blue') +
+  geom_text(aes(label=quality), hjust=0.5, vjust=2, color = 'blue') +
+  labs(y = "mean(fixed.acidity)", x= "mean(citric.acid)")
+
+```
+
+We could clearly see the trend that the higher the wine quality the higher of both fixed.acidity and citric.acid were. Increasing average fixed.acidity from 7.78 to 8.57 and average citric.acid from 0.17 to 0.39 lead to increase wine quality from 4 to 8. It is supported that with both fix.acidity and citric.acid were strongly correlated with correlation coefficient of 0.672, and both chemicals were also correlated with quality with correlation of 0.124 and 0.226 respectively.
+
+Let's group the data into rating.
+```{r}
+p1 <- ggplot(mean.variable.by.rating,
+            aes(x = citric.acid, y = fixed.acidity)) +
+  geom_point(aes(shape = rating), color = 'blue', size = 3) +
+  geom_line(color = 'green') +
+  geom_text(aes(label=rating), hjust=0.7, vjust=1.2, color = 'blue') +
+  labs(y = "mean(fixed.acidity)", x= "mean(citric.acid)")
+
+p1
+```
+
+The plot show a straight green line from rating 'bad' to 'good' when both fixed.acidity and citric.acid were increased. So, we could conlude that fixed.acidity, citric.acid and quality were positively correlated with each others.
+
+ 
+
+### Total.sulfur.dioxide and free.sulfur.dioxide code by quality
+
+Statistical summary of total.sulfur.dioxide and free.sulfur.dioxide code by quality.
+
+```{r sulfur, echo=FALSE}
+dd <- mean.variable.by.quality[c("free.sulfur.dioxide",
+                                   "total.sulfur.dioxide", "quality")]
+dd
+```
+
+Now, let's see how total.sulfur.dioxide and free.sulfur.dioxide vary with each other and with wine quality.
+
+
+```{r}
+ggplot(redwine, aes(x = free.sulfur.dioxide, y = total.sulfur.dioxide, 
+                    color= as.factor(quality))) + 
+  geom_point(alpha = 0.2) + theme(legend.position = "top") +
+  geom_point(data = mean.variable.by.quality, 
+           aes(x = free.sulfur.dioxide, y = total.sulfur.dioxide, 
+               shape = as.factor(quality)), color = 'red', size = 3) +
+  geom_smooth(data = mean.variable.by.quality, 
+           aes(x = free.sulfur.dioxide, y = total.sulfur.dioxide), 
+           method=lm, 
+           color = 'blue')
+```
+
+The scatter plot was showed how total.sulfur.dioxide and free.sulfur.dioxide varied by quality. I added the mean values of total.sulfur.dioxide and free.sulfur.dioxide for all qualities as red shapes. The blue line was regression line. We could see that the trend of proportional increase between total.sulfur.dioxide and free.sulfur.dioxide. Let's see if it is also true for wine quality by zooming up regression line of mean data.
+
+Regression line of mean data.
+
+```{r}
+ggplot(mean.variable.by.quality, 
+           aes(x = free.sulfur.dioxide, y = total.sulfur.dioxide)) +
+  geom_point(aes(shape = as.factor(quality)), size = 3, color = 'red') +
+  geom_smooth(method=lm, color = 'blue') +
+  geom_text(aes(label=quality), hjust=0.5, vjust=2, color = 'blue') +
+  labs(y = "mean(total.sulfur.dioxide)", x= "mean(free.sulfur.dioxide)")
+
+```
+
+It was interesting to note that the wine quality was best with the middle range of both chemical properties (14 and 35 respectively). It was also noted that with the average total.sulfur.dioxide were similar in both bad wine and very good wine while the free.sulfur.dioxide were around 2 g/dm^3 higher in very good wine. When the both concentration of the chemicals increased further, the wine quality reduced. It was suggested that low concentration of the chemicals make wine taste bad, however too much of them (above 35 g/dm^3 for total.sulfur.dioxide, 14 g/dm^3 for free.sulfur.dioxide ) reduced wine quality.
+
+Let's group the data into rating and see its relationship.
+
+```{r}
+ggplot(mean.variable.by.rating, 
+            aes(x = free.sulfur.dioxide, y = total.sulfur.dioxide)) +
+  geom_point(aes(shape = rating), color = 'blue', size = 3) +
+  geom_line(color = 'green') +
+  geom_text(aes(label=rating), hjust=0.5, vjust=1.2, color = 'blue') +
+  labs(y = "mean(total.sulfur.dioxide)", x= "mean(free.sulfur.dioxide)")
+```
+
+We could see that the wine quality was 'very good' in the middle data (blue square shape). It was clear that free.sulfur.dioxide and total.sulfur.dioxide were not correlated well with wine rating.
+
+### pH and density code by quality:
+
+Statistical summary of pH, density and quality.
+
+```{r pH and density sum, echo=FALSE}
+mean.variable.by.quality[c("pH", "density", "quality")]
+```
+
+Now, let's see how pH and density vary with each other and with wine quality.
+
+```{r}
+ggplot(redwine, aes(pH, density, color = as.factor(quality))) +
+  geom_point(alpha = 0.2) + theme(legend.position = "top") +
+  
+  geom_point(data = mean.variable.by.quality, 
+           aes(x = pH, y = density, 
+               shape = as.factor(quality)), color = 'red', size = 3) +
+  geom_smooth(data = mean.variable.by.quality, 
+           aes(x = pH, y = density),
+           method=lm, 
+           color = 'blue')
+```
+
+The scatter plot was showed how pH and density varied by quality. I added the mean values of pH and density for all qualities as red shapes. The blue line was regression line. We could see that the trend of proportional increase between pH and density. Let's see if it is also true for wine quality by zooming up regression line of mean data.
+
+Regression line of mean data.
+
+```{r}
+ggplot(mean.variable.by.quality, 
+           aes(x = pH, y = density)) +
+  geom_point(aes(shape = as.factor(quality)), size = 3, color = 'red') +
+  geom_smooth(method=lm, color = 'blue') +
+  geom_text(aes(label=quality), hjust=0.5, vjust=2, color = 'blue') +
+  labs(y = "mean(density)", x= "mean(pH)")
+
+```
+
+pH and density was slightly correlated with each other but not with quality. Low concentration of both pH and density lead to higher quality. Higher pH seems reduce quality while it was not clear in density. 
+
+We could see that the density was changed in a range from 0.997 to 0.995 g/dm^3. It was very small range though the plot showed wine quality increased when density decreased. And pH changed from 3.398 to 3.267 while wine quality increased from 3 to 8. So, we could conclude that pH and quality has negative correlation.
+
+Let's group the quality into rating.
+```{r}
+ggplot(mean.variable.by.rating, 
+            aes(x = pH, y = density)) +
+  geom_point(aes(shape = rating), color = 'blue', size = 3) +
+  geom_line(color = 'green') +
+  geom_text(aes(label=rating), hjust=0.5, vjust=-0.8, color = 'blue') +
+  labs(y = "mean(density)", x= "mean(pH)")
+```
+
+This graphs showed clear negative impact of pH with increasing pH reducing wine rating, while it was not clear for density.
+
+### Alcohol and sulphates code by quality:
+
+Statistical summary of alcohol and sulphates varied with quality
+
+```{r sulphate and alcohol sum, echo=FALSE}
+mean.variable.by.quality[c("sulphates", "alcohol", "quality")]
+```
+
+Now, let's see how alcohol and sulphates varied with each other and with quality.
+
+```{r alcohol and sulphates vs. quality, echo=FALSE }
+ggplot(redwine, aes(alcohol, sulphates, color = as.factor(quality))) +
+  geom_point(alpha = 0.2) + theme(legend.position = "top") +
+  geom_point(data = mean.variable.by.quality, 
+           aes(x = alcohol, y = sulphates, 
+               shape = as.factor(quality)), color = 'red', size = 3) +
+  geom_smooth(data = mean.variable.by.quality, 
+           aes(x = alcohol, y = sulphates),
+           method=lm, 
+           color = 'blue')
+
+```
+
+The scatter plot was showed how sulphates and alcohol varied by quality. I added the mean values of sulphates and alcohol for all qualities as red shapes. The blue line was regression line. We could see that sulphates and alcohol did have a positve correlation. Let's see if it is also true for wine quality by zooming up regression line of mean data.
+
+Regression line of mean data.
+
+
+```{r}
+ggplot(mean.variable.by.quality, 
+           aes(x = alcohol, y = sulphates)) +
+  geom_point(aes(shape = as.factor(quality)), size = 3, color = 'red') +
+  geom_smooth(method=lm, color = 'blue') +
+  geom_text(aes(label=quality), hjust=0.5, vjust=-1, color = 'blue') +
+  labs(y = "mean(sulphates)", x= "mean(alcohol)")
+
+```
+
+Sulphates and alcohol strongly correlated with each other. Increasing sulphates from 0.57 to 0.77 and alcohol from 9.96 to 12.09 lead to increase quality from 3 to 8.
+
+Let's group quality into rating.
+```{r}
+p2<- ggplot(mean.variable.by.rating, 
+             aes(alcohol, sulphates)) +
+  geom_point(aes(shape = rating), color = 'blue', size = 3) +
+  geom_line(color = 'green') +
+  geom_text(aes(label=rating), hjust=0.7, vjust=1.2, color = 'blue') +
+  labs(y = "mean(sulphates)", x= "mean(alcohol)")
+
+p2
+```
+
+The plot showed that with a little increased in alcohol and sulphates the wine rating increased from 'bad' to 'good'. So, it could concluded that sulphates and alcohol had positive correlations with quality.
+
+### Volatile.acidity and total.sulfur.dioxide code by quality:
+
+Statistical summary of volatile.acidity and total.sulfur.dioxide varied with quality
+
+```{r volatile.acidity and total.sulfur.dioxide, echo=FALSE}
+mean.variable.by.quality[c("volatile.acidity", "total.sulfur.dioxide", 
+                           "quality")]
+```
+
+
+Now, let's see how volatile.acidity and total.sulfur.dioxide varied with quality
+
+```{r}
+ggplot(redwine, aes(volatile.acidity, total.sulfur.dioxide, 
+                    color = as.factor(quality))) +
+  geom_point(alpha = 0.2) + theme(legend.position = "top") +
+  geom_point(data = mean.variable.by.quality, 
+           aes(x = volatile.acidity, y = total.sulfur.dioxide, 
+               shape = as.factor(quality)), color = 'red', size = 3)
+```
+
+The scatter plot was showed how total.sulfur.dioxide and volatile.acidity varied by quality. I added the mean values of total.sulfur.dioxide and volatile.acidity for all qualities as red shapes.  We could see that total.sulfur.dioxide and volatile.acidity were not correlated with each other. Let's see if it is also true for wine quality by zooming up regression line of mean data.
+
+Regression line of mean data.
+
+```{r}
+ggplot(mean.variable.by.quality, 
+           aes(x = volatile.acidity, y = total.sulfur.dioxide)) +
+  geom_point(aes(shape = as.factor(quality)), size = 3, color = 'red') +
+  geom_line(color = 'black') +
+  geom_text(aes(label=quality), hjust=0.5, vjust=-1.2, color = 'blue') +
+  labs(y = "mean(total.sulfur.dioxide)", x= "mean(volatile.acidity.alcohol)")
+
+```
+
+The total.sulfur.dioxide was low (around 25 to 35) for quality from 3-4 and 7-8. While volatile.acidity was strongly negative correlated with quality. The volatile.acidity was decreased from 0.84 to 0.42 while quality increased from 3 to 8.
+
+Let's group the data into rating.
+
+```{r}
+ggplot(mean.variable.by.rating, 
+            aes(x = volatile.acidity, y = total.sulfur.dioxide)) +
+  geom_point(aes(shape = rating), color = 'blue', size = 3) +
+  geom_line(color = 'green') +
+  geom_text(aes(label=rating), hjust=0.5, vjust=1.2, color = 'blue') +
+  labs(y = "mean(total.sulfur.dioxide)", x= "mean(volatile.acidity.alcohol)")
+```
+
+It was clear that volatile.acidity had negative impact on wine rating with increase in volatile.acidity led to decrease in wine rating. However, it was no relationship between quality and total.sulfur.dioxide and also between volatile.acidity and total.sulfur.dioxide.
+
+##  Multivariate Summary
+
+
+pH and density was slightly correlated with each other but not with quality. Low concentration of both pH and density lead to higher quality. Higher pH seems reduce quality while it was not clear in density.
+
+Total.sulfur.dioxide and volatile.acidity were not correlated with each other. Sulfur.dioxide was not correlated with wine quality while volatile.acidity was.
+
+Some chemical correlated well with quality but not each others such as free.sulfur.dioxide and total.sulfur.dioxide. It was interesting to note that the wine quality was best with the middle range of both chemical properties (14 and 35 respectively).
+
+Some chemical properties strongly correlated with each others and with wine quality, particularly:  
+
+- Fixed.acidity and citric.acid strongly correlate with each other. Increasing average fixed.acidity from 7.78 to 8.57 and average citric.acid from 0.17 to 0.39 lead to increase wine quality from 4 to 8.
+
+- Sulphates and alcohol strongly correlated with each other. Increasing average sulphates from 0.57 to 0.77 and average alcohol from 9.96 to 12.09 lead to increase quality from 3 to 8.
+
+
+# Final Plots and Summary
+
+
+We have explored the red wine data with many interesting questions about the data structures, data summary and how chemical properties vary with each others and with our feature of interest- quality. We have did statistical analysis and many different kinds of plots such as histogram, box plots, bar graph, etc. Let's summarized the findings in there plots.
+
+### Plot One: Chemical properties highly influence wine quality
+
+```{r plot 1 correlation with quality , echo=FALSE, warning=FALSE}
+a <- subset(df, cor.coef>0.1 | cor.coef<= -0.1) # group data
+b <- a$cor.coef # slice the cor_coef
+
+df_pos <- subset(df, cor.coef>0.1) # var with postive cor_coef
+df_neg <- subset(df, cor.coef<= -0.1) # var with negative cor_coef
+# correlation graph------------
+cor_plot <- ggplot(a, aes(x = var, y = cor.coef))
+cor_plot +
+  geom_bar(aes(fill = "positive influence"), 
+           data = df_pos, stat = "identity", fill = "green") + 
+  geom_bar(aes(fill = "negative influence"),
+           data = df_neg, stat = "identity", fill = "red") +
+  ylim(-0.5, 0.5) +  
+  coord_flip() + # flip the axis for easier comparation
+  labs(x = "Chemical properties", y = "Correlation coefficient") +   
+  ggtitle("Plot 1. Chemical properties highly influence wine quality") + 
+  geom_text(label= round(b, 3), y = b, vjust=1.5, size = 5 )
+```
+
+
+From plot 1, we could see that alcohol, citric.acid, fixed.acidity and sulphates positively influenced wine quality (green bar). Among those properties, sulphates, citric.acid, alcohol had the strongest impact with correlations of 0.251, 0.226 and 0.476 respectively. 
+
+Volatile.acidity, total.sulfur.dioxide, density, chlorides negatively influenced wine quality (red bar). Among those properties, volatile.acidity had the strongest impact with correlation of -0.391.
+
+
+### Plot Two
+After finding alcohol and volatile.acidity have strongest impacts on wine quality. Let's summarize their relationships with wine quality. The below plots were selected and improved from bivariate plots section.
+
+```{r plot 2 boxplot volatile.acidity, echo=FALSE}
+grid.arrange(boxplot.volatile.acidity, boxplot.alcohol, ncol = 2, 
+             top="Plot 2. Effects of volatile.acidity and alcohol on quality")
+```
+
+Statistical summary of average alcohol and volatile.acidity vary with quality:
+
+```{r alcohol and volatile.acidity statistic, echo=FALSE}
+mean.variable.by.quality[c("quality", "alcohol",
+                                   "volatile.acidity")]
+```
+
+Increasing volatile.acidity from 0.404 to 0.884 significantly reduced wine quality from 8 to 3, while increasing alcohol from 9.955 to 12.094 increased wine quality from 3 to 8. This results were consistent with the correlation findings where volatile.acidity had correlation coefficient of -0.391 while alcohol's was 0.476. I suggested to use the two chemical properties as main features for quality predicting model. 
+
+
+### Plot Three
+
+Next, let's see among the chemical properties there was any strong correlations with each others and also with quality. The below plots were selected and improved from the multivariate plots section.
+
+
+```{r plot 3, echo=FALSE}
+grid.arrange(p1 + theme(legend.position = "top"), 
+             p2 + theme(legend.position = "top"), 
+             ncol=2, 
+             top = "Plot 3. Quality varies with chemcical properties")
+```
+
+
+It was noted that I grouped the wine quality into 3 groups: bad (quality of 3 and 4 quality), good (quality of 5 and 6) and very good (quality of 7 and 8).
+
+Statistic summary of average alcohol, sulphates, citric.acid and fixed.acidity vary with quality.
+
+```{r pos statistic, echo=FALSE}
+as.data.frame(mean.variable.by.rating)[c("rating", "alcohol",
+                                           "sulphates", "citric.acid",
+                                           "fixed.acidity")]
+```
+
+We found that:
+
+- Fixed.acidity and citric.acid strongly correlate with each other. Increasing average fixed.acidity from 7.87 to 8.85 and average citric.acid from 0.17 to 0.38 lead to increase wine rating from bad to very good.
+
+- Sulphates and alcohol strongly correlated with each other. Increasing average sulphates from 0.59 to 0.74 and average alcohol from 10.21 to 11.51 lead to increase wine rating from bad to very good.
+
+It was interesting to note that the four chemical properties were highly correlated with wine quality as showed in plot 1. Particularly, fixed.acidity, sulphates, citric.acid, alcohol had the strongest impact with correlations of 0.124, 0.251, 0.226 and 0.476 respectively.
+
+When we run modeling for predicting the quality we should careful select the features so two or three features are not too correlated. 
+
+
+# Reflection
+
+- The data has 11 chemical properties. In order to investigate all the variables, it could take some much time plotting individual graphs. Therefore, I researched on R library and also R blogger to learn to code in R. First, I iterated the histograms and box plots by writing a function that iterate all the variable names. It was succeed but still was too slow and complicated. Then, I read the paper "Tidy data" by Hadley Wickham. It changed everything. I reshaped the data into long format and applied facet_wrap function to iterate the variables with the histograms and box plots. It was fast and effective.
+
+- I was at first carried by the interesting data and forgot to organize my codes and style. Since there were so many plots, it was very productive by writing some functions to avoid repeat codes. Referring to Google's R Style Guide is also helpful to made my code easier to read.
+
+- When I tried to use line plot to investigate the relationships of chemical properties and quality of wine, it was very hard to see since the data were spread out. However, when I use the box plot the trends of the data were much clearer. 
+
+- All chemical properties had outliers and widely spread out made box plots not easy to see. Therefore, I used the average value and it was easier to identify which chemical properties may influence on the wine quality.
+
+- With the average value of variables, I could plot the relationship of the variables vs. quality. However, when alcohol concentration went down the wine quality went up from 4-5 which was not consistent with positive correlation coefficient of alcohol with wine quality. So, I group the wine quality into three group and add a new variable "rating". The graph told better and clearer story.
+
+- In working with final plots, I have found which variables influence wine quality but I wanted to present it in clear way. I tried different plots and their combination. Finally, I came up with combine the correlation coefficients graphs and the relationship of selected variable with wine rating. It was a good summary plot since it told what I want to summarize: alcohol, citric.acid, sulphates and volatile.acidity influence wine quality. 
+
+- Also, I understand that it seems hard to predict the quality of the wine base on physicochemical properties. As all kind of food and drink, its organic chemical properties are very important. Also, I found citric.acid, fixed.acidity, pH and density have strongly correlated with each others (see their correlation coefficients were higher than 0.6).  Free.sulfur.dioxide and total.sulfur.dioxide were also strongly correlated. Therefore, I recommend further studies should pay attention to those variables. 
+
+- From the overall summary and findings of the analysis, I recommend further study would using alcohol, citric.acid, sulphates and volatile.acidity to build a linear regression using those variable as inputs to predict red wine quality. Since alcohol and sulphates were well correlated and also as citric.acid with fixed.acidity, I should be careful on those features to avoid errors.
+
+
+
