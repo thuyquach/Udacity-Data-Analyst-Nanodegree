@@ -1,0 +1,4 @@
+Resources: 
+-udacity.com
+- stackoverflow.com
+- dimplejs.org

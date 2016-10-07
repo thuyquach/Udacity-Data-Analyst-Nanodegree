@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="http://d3js.org/d3.v3.min.js"></script>
+  <script src="http://dimplejs.org/dist/dimple.v2.0.0.min.js"></script>
+<style>
+    /* Title */
+    h2 {
+        text-align: center;
+    }
+    
+    /* Normal text */
+    div {
+        text-align: justify;
+        
+    }
+    
+    /* Explain how baseball play */
+    
+    p {
+        text-align: center;
+        font-style: italic;
+    }
+</style>
+        <script type="text/javascript">
+        "use strict";
+        var margin = 50,
+            width = 750 - margin,
+            height = 450 - margin;
+    /* This function the outline of the page with a title, abstract and three plots */
+    function draw(data) {
+        //append title
+        d3.select("body")
+            .append("h2")
+            .text("Left-handed baseball players perform better");
+        
+        //append abstract
+        d3.select("body")
+            .append("div")
+            .text("Left-handed baseball players have higher number of home run and batting average (Fig.1). Though majority of player are hand-righted, the number of left-handed player was 316 out of 1145 total number of player (27%)(Fig.2). It is very interesting since there is only 12% of general public are left-handed. Does having a left-handed giving player some advantages? Yes, they do. 1) When a right-handed batter swings, his momentum takes him toward third base. He has to re-start toward first base. But a lefty’s swing takes him toward first base. 2) Left-handed hitters fair better when against righty pitchers, who are the majority,  because the pitch looks like it starts out right in front of him the whole way rather than behind righty's shoulder. So, if you borned left-handed and love playing baseball, consider it as your advantages.") 
+        
+        // add a link to explain how baseball play
+        d3.select("body")
+            .append("p")
+            .append("text")
+            .text("Please click me to learn how baseball plays.")
+            .on("click", function() { window.open("https://simple.wikipedia.org/wiki/Baseball"); });
+        
+        //append handedness vs homeruns and batting average
+        two_y_bar_scatter_plot(data);
+        player_bar_plot(data);
+    };
+    
+    /* Plots a graph of avarage homeruns and batting average grouped by handedness */
+    
+    function two_y_bar_scatter_plot(data) {
+        var svg = d3.select("body")
+            .append("svg")
+              .attr("width", width + margin)
+              .attr("height", height + margin)
+            .append('g')
+                .attr('class','chart');
+        
+        var myChart = new dimple.chart(svg, data);
+        // Add an x and 2 y-axes.  When using multiple axes it's
+        // important to assign them to variables to pass to the series
+        var x = myChart.addCategoryAxis("x", "handedness");
+        x.title = "Player's handedness (B: Both / R: Right /L: Left)";
+        x.addOrderRule(["B", "R", "L"]);
+        var y1 = myChart.addMeasureAxis("y", "avg");
+        y1.title = "Average of Player's Batting (avg)";
+        var y2 = myChart.addMeasureAxis("y", "HR");
+        y2.title = "Home runs (HR)";
+        y1.tickFormat = ',.2f';
+        y2.tickFormat = '0f';
+        
+         // Add the bar chart mapped to the second y axis
+        var Homerun = myChart.addSeries("Home runs (HR)", dimple.plot.bar, [x, y2]);
+        Homerun.aggregate = dimple.aggregateMethod.avg;
+    
+        // Add series for average and maximum avg
+        var vag = myChart.addSeries("Average Batting", dimple.plot.bubble, [x, y1]);
+        vag.aggregate = dimple.aggregateMethod.avg;
+        myChart.assignColor("Average Batting", "red", "black");
+        
+        var max = myChart.addSeries("Maximum Batting", dimple.plot.bubble, [x, y1]);
+        max.aggregate = dimple.aggregateMethod.max;
+        myChart.assignColor("Maximum Batting", "yellow", "black");
+        
+        //add legend
+        var myLegend = myChart.addLegend(65, 10, 550, 20, "right");
+        myLegend.fontSize = "15px";
+        
+        //add font size
+        x.fontSize = "15px";
+        y1.fontSize = "15px";
+        y2.fontSize = "15px";
+        
+        myChart.draw();
+    };
+    /* Plots a bar graph of total player numbers grouped by handedness */
+        
+    function player_bar_plot(data) {
+        var svg = d3.select("body")
+            .append("svg")
+              .attr("width", width + margin)
+              .attr("height", height + margin)
+            .append('g')
+                .attr('class','chart');
+       
+        var myChart = new dimple.chart(svg, data);
+        
+        var x = myChart.addCategoryAxis("x",  "handedness");
+        x.title = "Player's handedness (B: Both / R: Right /L: Left)";
+        
+        // Change the order of x to make left-handedness advantages easier to be noticed
+        x.addOrderRule(["B", "R", "L"]);
+        var y = myChart.addMeasureAxis("y", "name");
+        y.title = "Number of player";
+        var mySeries = myChart.addSeries(null, dimple.plot.bar);
+        
+        // Increase the font size to 15px
+        x.fontSize = "15px";
+        y.fontSize = "15px";
+     
+        // Change the fill of the bar to black
+        myChart.defaultColors = [
+            new dimple.color("gray") 
+                                    ];
+        mySeries.getTooltipText = function (e) {
+                return [
+                    "handedness: " + e.xField[0],
+                    "number of players: " +  e.yValue
+                ];
+            };
+        
+        myChart.draw();
+    };
+        
+      </script>
+  </head>
+<body>
+  <script type="text/javascript">
+  /*
+    Use D3 (not dimple.js) to load the CSV file
+    and pass the contents of it to the draw function
+    */
+  d3.csv("baseball_data.csv", draw);
+  </script>
+</body>
+</html>
+
