@@ -1,0 +1,1 @@
+I used descriptive statistics and a statistical test to analyze the Stroop effect where participants are required to say the color of the word in two cases 1) color names match and 2) color names do not match the words. Using Python to visualize and statistically analyze the results shows that the second case leads to more mistakes and longer time to achieve.
