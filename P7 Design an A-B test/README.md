@@ -1,0 +1,1 @@
+In this project I designed an A/B test for Udacity Free Trial’s Screener, including which invariant and evaluation metrics to measure and how long the test should be run. My results suggested that Udacity should not launch the experiment. I also proposed a follow-up experiment.
