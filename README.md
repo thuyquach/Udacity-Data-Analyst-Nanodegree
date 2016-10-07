@@ -11,7 +11,7 @@ I applied data science techniques including data wrangling, applied statistics, 
 ####Project 3: Explore and Summarize Data
 I investigated redwine dataset using R and exploratory data analysis techniques, explored both single variables and relationships between them.
 
-####Project 4: Wrangle OpenStreetMap Data, Udacity
+####Project 4: Wrangle OpenStreetMap Data
 I assessed Seattle OpenStreetMap data using Python and MongoDB for validity, accuracy, completeness, consistency, and uniformity  and then cleaned up problems found in the JSON data. Wrote code to clean up data of CSV, JSON, XML data formats.
 
 ####Project 5: Identify Fraud from Enron Email  
